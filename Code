@@ -1,0 +1,113 @@
+# Load necessary packages
+install.packages("readxl")
+install.packages("tidyverse")
+install.packages("lmtest")
+install.packages("shiny")
+install.packages("shinydashboard")
+install.packages("openxlsx")
+
+library(readxl)
+library(tidyverse)
+library(lmtest)
+library(shiny)
+library(shinydashboard)
+library(openxlsx)
+
+# Load the data
+data <- read_excel(file.choose())
+setwd("C:/Users/ASUS/Documents/New folder/R Code") # This is used to set the working directory
+getwd() # used for getting the working directory used 
+
+# Split the data into training and testing sets
+set.seed(123) # Set a seed for reproducibility
+n <- nrow(data)
+sample_rows <- sample(1:n, n * 0.7) # 70% of the data for training
+training_data <- data[sample_rows, ]
+testing_data <- data[-sample_rows, ]
+
+# Train a model on the training data
+model <- lm(salary ~ age + education + experience, data = training_data)
+
+# Define the UI
+ui <- dashboardPage(
+  dashboardHeader(
+    title = "HR Salary Prediction Dashboard",
+    tags$li(
+      class = "dropdown",
+      a(
+        href = "https://example.com",
+        target = "_blank",
+        icon("question-circle", lib = "font-awesome"),
+        style = "color: blue; font-size: 24px;"
+      )
+    )
+  ),
+  
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem(
+        "Home",
+        tabName = "home",
+        icon = icon("home", lib = "font-awesome"),
+        selected = TRUE
+      ),
+      menuItem(
+        "Predict Salary",
+        tabName = "prediction",
+        icon = icon("dollar-sign", lib = "font-awesome")
+      )
+    )
+  ),
+  
+  dashboardBody(
+    tabItems(
+      tabItem(
+        tabName = "home",
+        h2("Welcome to the HR Salary Prediction Dashboard"),
+        box(
+          title = "Instructions",
+          "Please use the 'Predict Salary' tab to predict salaries based on the input parameters."
+        )
+      ),
+      tabItem(
+        tabName = "prediction",
+        h2("Predict Salary"),
+        box(
+          title = "Input Parameters",
+          numericInput("age", "Age:", value = 30, min = 18, max = 65),
+          selectInput("education", "Education:", choices = unique(data$education)),
+          numericInput("experience", "Experience (in years):", value = 5, min = 0, max = 40),
+          actionButton("predictBtn", "Predict Salary", class = "btn-success")
+        ),
+        box(
+          title = "Predicted Salary",
+          verbatimTextOutput("predictionText")
+        )
+      )
+    )
+  )
+)
+
+# Define the server logic
+server <- function(input, output) {
+  observeEvent(input$predictBtn, {
+    new_data <- data.frame(age = input$age, education = input$education, experience = input$experience)
+    
+    # Predict on the testing data
+    predicted_salary <- predict(model, new_data)
+    output$predictionText <- renderPrint({
+      cat("Predicted Salary: ₹", round(predicted_salary, 2))
+    })
+    
+    # Save the testing data and predictions to Excel
+    result_data <- cbind(testing_data, Predicted_Salary = predicted_salary)
+    write.xlsx(result_data, "predicted_results.xlsx", row.names = FALSE)
+    
+    # Save the training and testing data to Excel files
+    write.xlsx(training_data, "training_data.xlsx", row.names = FALSE)
+    write.xlsx(testing_data, "testing_data.xlsx", row.names = FALSE)
+  })
+}
+
+# Run the Shiny app
+shinyApp(ui, server)
